@@ -59,11 +59,14 @@ func FormPost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	q.SetResult()
+
 	if err := DB.Create(&q).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, q)
 }
 
@@ -110,28 +113,27 @@ type Questionnaire struct {
 // 把第1、7、11、16、21、26题的分加起来就是你的“猫头鹰”分数
 // 把第4、9、12、19、23、27题的分加起来就是你的“变色龙”分数
 func (q *Questionnaire) SetResult() {
-	// 老虎
-	tiger := q.Question5 + q.Question10 + q.Question14 + q.Question18 + q.Question24 + q.Question30
-	// 孔雀
-	peacock := q.Question3 + q.Question6 + q.Question13 + q.Question20 + q.Question22 + q.Question29
-	// 考拉
-	kangaroo := q.Question2 + q.Question8 + q.Question15 + q.Question17 + q.Question25 + q.Question28
-	// 猫头鹰
-	owl := q.Question1 + q.Question7 + q.Question11 + q.Question16 + q.Question21 + q.Question26
-	// 变色龙
-	chameleon := q.Question4 + q.Question9 + q.Question12 + q.Question19 + q.Question23 + q.Question27
+	var (
+		tiger     = q.Question5 + q.Question10 + q.Question14 + q.Question18 + q.Question24 + q.Question30
+		peacock   = q.Question3 + q.Question6 + q.Question13 + q.Question20 + q.Question22 + q.Question29
+		kangaroo  = q.Question2 + q.Question8 + q.Question15 + q.Question17 + q.Question25 + q.Question28
+		owl       = q.Question1 + q.Question7 + q.Question11 + q.Question16 + q.Question21 + q.Question26
+		chameleon = q.Question4 + q.Question9 + q.Question12 + q.Question19 + q.Question23 + q.Question27
+	)
 
-	if tiger >= peacock && tiger >= kangaroo && tiger >= owl && tiger >= chameleon {
+	// 判断结果
+	switch {
+	case tiger >= peacock && tiger >= kangaroo && tiger >= owl && tiger >= chameleon:
 		q.Result = "老虎"
-	} else if peacock >= tiger && peacock >= kangaroo && peacock >= owl && peacock >= chameleon {
+	case peacock >= tiger && peacock >= kangaroo && peacock >= owl && peacock >= chameleon:
 		q.Result = "孔雀"
-	} else if kangaroo >= tiger && kangaroo >= peacock && kangaroo >= owl && kangaroo >= chameleon {
+	case kangaroo >= tiger && kangaroo >= peacock && kangaroo >= owl && kangaroo >= chameleon:
 		q.Result = "考拉"
-	} else if owl >= tiger && owl >= peacock && owl >= kangaroo && owl >= chameleon {
+	case owl >= tiger && owl >= peacock && owl >= kangaroo && owl >= chameleon:
 		q.Result = "猫头鹰"
-	} else if chameleon >= tiger && chameleon >= peacock && chameleon >= kangaroo && chameleon >= owl {
+	case chameleon >= tiger && chameleon >= peacock && chameleon >= kangaroo && chameleon >= owl:
 		q.Result = "变色龙"
-	} else {
+	default:
 		q.Result = "未知"
 	}
 }
