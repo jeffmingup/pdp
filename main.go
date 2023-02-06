@@ -30,13 +30,13 @@ func init() {
 	flag.UintVar(&port, "port", defaultPort, "服务端口号")
 	flag.Parse()
 
-	newFunction()
+	setGorm()
 	if err := gormDB.AutoMigrate(&Questionnaire{}); err != nil {
 		panic(err)
 	}
 }
 
-func newFunction() {
+func setGorm() {
 	dsn = fmt.Sprintf("%v?charset=utf8mb4&parseTime=True&loc=Local", dsn)
 	var err error
 	gormDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
