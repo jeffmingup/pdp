@@ -8,10 +8,15 @@ on:
     branches: [master]
   schedule:
     - cron: "11 0 * * 5"
+  workflow_dispatch:
 
 jobs:
   analyze:
-    name: Analyze
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
     runs-on: ubuntu-latest
 
     strategy:
