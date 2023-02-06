@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -12,37 +13,46 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	dbConns     = 50
+	defaultPort = 8066
+)
+
 var (
 	dsn  string
 	port uint
 )
 
-var DB *gorm.DB
+var gormDB *gorm.DB
 
 func init() {
 	flag.StringVar(&dsn, "dsn", "root:root@tcp(127.0.0.1:3306)/pdp", "mysql数据库连接")
-	flag.UintVar(&port, "port", 8066, "服务端口号")
+	flag.UintVar(&port, "port", defaultPort, "服务端口号")
 	flag.Parse()
 
+	newFunction()
+	if err := gormDB.AutoMigrate(&Questionnaire{}); err != nil {
+		panic(err)
+	}
+}
+
+func newFunction() {
 	dsn = fmt.Sprintf("%v?charset=utf8mb4&parseTime=True&loc=Local", dsn)
 	var err error
-	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	gormDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic(err)
 	}
-	sqlDB, err := DB.DB()
+	sqlDB, err := gormDB.DB()
 	if err != nil {
 		panic(err)
 	}
 	// SetMaxIdleConns 设置空闲连接池中连接的最大数量
-	sqlDB.SetMaxIdleConns(50)
+	sqlDB.SetMaxIdleConns(dbConns)
 	// SetMaxOpenConns 设置打开数据库连接的最大数量。
-	sqlDB.SetMaxOpenConns(50)
-	// SetConnMaxLifetime 设置了连接可复用的最大时间。
+	sqlDB.SetMaxOpenConns(dbConns)
+	// SetConnMaxLifetime 设置了连接可复用的最大时间
 	sqlDB.SetConnMaxLifetime(time.Minute)
-	if err := DB.AutoMigrate(&Questionnaire{}); err != nil {
-		panic(err)
-	}
 }
 
 func main() {
@@ -50,26 +60,29 @@ func main() {
 
 	r.Use(cors.Default())
 	r.POST("/", FormPost)
-	r.Run(fmt.Sprintf(":%v", port))
+	log.Println(r.Run(fmt.Sprintf(":%v", port)))
 }
 
 func FormPost(c *gin.Context) {
-	var q Questionnaire
-	if err := c.ShouldBind(&q); err != nil {
+	var questionnaire Questionnaire
+	if err := c.ShouldBind(&questionnaire); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
 		return
 	}
 
-	q.SetResult()
+	questionnaire.SetResult()
 
-	if err := DB.Create(&q).Error; err != nil {
+	if err := gormDB.Create(&questionnaire).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
 		return
 	}
 
-	c.JSON(http.StatusOK, q)
+	c.JSON(http.StatusOK, questionnaire)
 }
 
+//nolint:all // 为了方便，这里不做任何校验
 type Questionnaire struct {
 	ID         int       `gorm:"primaryKey;autoIncrement;column:id" db:"id" json:"id" form:"id"`
 	Name       string    `gorm:"column:name;not null;size:256" db:"name" json:"name" form:"name" binding:"required"`
@@ -112,6 +125,8 @@ type Questionnaire struct {
 // 把第2、8、15、17、25、28题的分加起来就是你的“考拉”分数
 // 把第1、7、11、16、21、26题的分加起来就是你的“猫头鹰”分数
 // 把第4、9、12、19、23、27题的分加起来就是你的“变色龙”分数
+//
+//nolint:gocognit,gocyclo,cyclop // 排除循环复杂度检查
 func (q *Questionnaire) SetResult() {
 	var (
 		tiger     = q.Question5 + q.Question10 + q.Question14 + q.Question18 + q.Question24 + q.Question30
