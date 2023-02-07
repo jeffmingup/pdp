@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/gin-contrib/cors v1.4.0
+	github.com/gin-contrib/gzip v0.0.6
 	github.com/gin-gonic/gin v1.8.2
 	gorm.io/driver/mysql v1.4.5
 	gorm.io/gorm v1.24.4

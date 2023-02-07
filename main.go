@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -57,9 +58,11 @@ func setGorm() {
 
 func main() {
 	r := gin.Default()
-
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
 	r.Use(cors.Default())
 	r.POST("/", FormPost)
+	r.Static("/dist", "./dist")
+
 	log.Println(r.Run(fmt.Sprintf(":%v", port)))
 }
 
