@@ -61,6 +61,9 @@ func main() {
 	r.Use(gzip.Gzip(gzip.DefaultCompression))
 	r.Use(cors.Default())
 	r.POST("/", FormPost)
+
+	// 列表查询前端地址：/dist/#/useList
+	r.GET("/resultList", ResultList)
 	r.Static("/dist", "./dist")
 
 	log.Println(r.Run(fmt.Sprintf(":%v", port)))
@@ -85,7 +88,27 @@ func FormPost(c *gin.Context) {
 	c.JSON(http.StatusOK, questionnaire)
 }
 
-//nolint:all // 为了方便，这里不做任何校验
+type QuestionnaireListReq struct {
+	Name     string `json:"name" form:"name"`
+	Result   string `json:"result" form:"result"`
+	PageSize int    `json:"page_size" form:"page_size" `
+	PageNum  int    `json:"page_num" form:"page_num"`
+}
+
+func ResultList(c *gin.Context) {
+	var req QuestionnaireListReq
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
+		return
+	}
+	if list, count, err := (&Questionnaire{}).GetQuestionnaireInfoList(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	} else {
+		c.JSON(http.StatusOK, gin.H{"page_num": req.PageNum, "page_size": req.PageSize, "count": count, "list": list})
+	}
+}
+
 type Questionnaire struct {
 	ID         int       `gorm:"primaryKey;autoIncrement;column:id" db:"id" json:"id" form:"id"`
 	Name       string    `gorm:"column:name;not null;size:256" db:"name" json:"name" form:"name" binding:"required"`
@@ -154,4 +177,70 @@ func (q *Questionnaire) SetResult() {
 	default:
 		q.Result = "未知"
 	}
+}
+
+type QuestionnaireResult struct {
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Result    string `json:"result"`
+	Tiger     uint8  `json:"tiger"`
+	Peacock   uint8  `json:"peacock"`
+	Kangaroo  uint8  `json:"kangaroo"`
+	Owl       uint8  `json:"owl"`
+	Chameleon uint8  `json:"chameleon"`
+	CreatedAt string `json:"created_at"`
+}
+
+// Questionnaire列表分页查询.
+func (s *Questionnaire) GetQuestionnaireInfoList(req *QuestionnaireListReq) ([]QuestionnaireResult, int64, error) {
+	var (
+		err            error
+		questionnaires []Questionnaire
+		total          int64
+	)
+
+	// 查询条件
+	query := gormDB.Model(&Questionnaire{})
+	if req.Name != "" {
+		query = query.Where("name like ?", "%"+req.Name+"%")
+	}
+	if req.Result != "" {
+		query = query.Where("result = ?", req.Result)
+	}
+
+	// 排序
+	query = query.Order("id desc")
+
+	// 分页
+	if req.PageSize != 0 && req.PageNum != 0 {
+		query = query.Limit(req.PageSize).Offset((req.PageNum - 1) * req.PageSize)
+	}
+
+	// 查询
+	err = query.Find(&questionnaires).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 总数
+	err = query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	results := make([]QuestionnaireResult, 0, len(questionnaires))
+	for _, v := range questionnaires {
+		var result QuestionnaireResult
+		result.ID = v.ID
+		result.Name = v.Name
+		result.Result = v.Result
+		result.CreatedAt = v.CreatedAt.Format("2006-01-02 15:04:05")
+		result.Tiger = v.Question5 + v.Question10 + v.Question14 + v.Question18 + v.Question24 + v.Question30
+		result.Peacock = v.Question3 + v.Question6 + v.Question13 + v.Question20 + v.Question22 + v.Question29
+		result.Kangaroo = v.Question2 + v.Question8 + v.Question15 + v.Question17 + v.Question25 + v.Question28
+		result.Owl = v.Question1 + v.Question7 + v.Question11 + v.Question16 + v.Question21 + v.Question26
+		result.Chameleon = v.Question4 + v.Question9 + v.Question12 + v.Question19 + v.Question23 + v.Question27
+		results = append(results, result)
+	}
+
+	return results, total, nil
 }
