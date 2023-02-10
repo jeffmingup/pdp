@@ -208,6 +208,11 @@ func (s *Questionnaire) GetQuestionnaireInfoList(req *QuestionnaireListReq) ([]Q
 		query = query.Where("result = ?", req.Result)
 	}
 
+	// 总数
+	err = query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
 	// 排序
 	query = query.Order("id desc")
 
@@ -222,11 +227,6 @@ func (s *Questionnaire) GetQuestionnaireInfoList(req *QuestionnaireListReq) ([]Q
 		return nil, 0, err
 	}
 
-	// 总数
-	err = query.Count(&total).Error
-	if err != nil {
-		return nil, 0, err
-	}
 	results := make([]QuestionnaireResult, 0, len(questionnaires))
 	for _, v := range questionnaires {
 		var result QuestionnaireResult
